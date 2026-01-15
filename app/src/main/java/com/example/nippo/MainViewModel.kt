@@ -56,7 +56,13 @@ class MainViewModel : ViewModel() {
     private fun startUserListener(uid: String) {
         userListener?.remove()
         userListener = db.collection("users").document(uid)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, e ->
+                // エラーハンドリングを追加
+                if (e != null) {
+                    _uiState.update { it.copy(errorMessage = "ユーザー情報の取得に失敗: ${e.message}") }
+                    return@addSnapshotListener
+                }
+
                 if (snapshot != null && snapshot.exists()) {
                     val cId = snapshot.getString("companyId").takeIf { !it.isNullOrEmpty() }
                     _uiState.update {
@@ -79,7 +85,13 @@ class MainViewModel : ViewModel() {
     private fun startCompanyListener(companyId: String) {
         companyListener?.remove()
         companyListener = db.collection("companies").document(companyId)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, e ->
+                // エラーハンドリングを追加
+                if (e != null) {
+                    _uiState.update { it.copy(errorMessage = "会社情報の取得に失敗: ${e.message}") }
+                    return@addSnapshotListener
+                }
+
                 if (snapshot != null && snapshot.exists()) {
                     _uiState.update { it.copy(companyName = snapshot.getString("name") ?: "") }
                 }
@@ -94,7 +106,19 @@ class MainViewModel : ViewModel() {
             .whereEqualTo("companyId", companyId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(1)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, e ->
+                // エラーハンドリングを追加
+                if (e != null) {
+                    // インデックス未作成のエラーはここで捕捉されます
+                    val msg = if (e.message?.contains("index") == true) {
+                        "インデックスの作成が必要です。LogcatのURLを確認してください。"
+                    } else {
+                        "打刻履歴の取得に失敗: ${e.message}"
+                    }
+                    _uiState.update { it.copy(errorMessage = msg) }
+                    return@addSnapshotListener
+                }
+
                 if (snapshot != null && !snapshot.isEmpty) {
                     val type = snapshot.documents[0].getString("type")
                     _uiState.update { it.copy(isWorking = type == "clock_in") }
