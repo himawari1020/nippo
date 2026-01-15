@@ -1,0 +1,60 @@
+<resources>
+    <string name="app_name">勤怠管理アプリ</string>
+
+    <string name="email_label">メールアドレス</string>
+    <string name="password_label">パスワード</string>
+    <string name="login_button">ログイン</string>
+    <string name="signup_button">アカウントを作成する</string>
+    <string name="switch_to_signup">新規登録はこちら</string>
+    <string name="switch_to_login">既にアカウントをお持ちの方</string>
+    <string name="or_divider">または</string>
+    <string name="google_sign_in">Google でサインイン</string>
+    <string name="verification_needed">メール認証が必要です</string>
+    <string name="verification_sent_msg">%1$s 宛に確認メールを送信しました。</string>
+    <string name="verification_hint">リンクをクリックしてから下のボタンを押してください。</string>
+    <string name="verification_check_button">認証を完了しました</string>
+    <string name="logout_return_button">ログアウトして戻る</string>
+    <string name="logout">ログアウト</string>
+
+    <string name="dashboard_title">勤務管理</string>
+    <string name="settings_title">設定</string>
+    <string name="hello_user">%1$s さん</string>
+    <string name="affiliation_info">所属: %1$s</string>
+    <string name="affiliation_id_info">所属ID: %1$s</string>
+    <string name="clock_in">出勤</string>
+    <string name="clock_out">退勤</string>
+    <string name="clock_in_done">出勤しました</string>
+    <string name="clock_out_done">退勤しました</string>
+    <string name="back_to_dashboard">ダッシュボードに戻る</string>
+
+    <string name="account_info">アカウント情報</string>
+    <string name="user_name_label">お名前: %1$s</string>
+    <string name="role_label">権限: %1$s</string>
+    <string name="role_admin">管理者</string>
+    <string name="role_user">一般</string>
+    <string name="admin_menu">管理者メニュー</string>
+    <string name="delete_account_warning">解約すると全てのデータが削除されます。</string>
+    <string name="delete_account_button">サービスを解約してアカウントを削除</string>
+
+    <string name="dialog_create_company">会社を新規作成</string>
+    <string name="dialog_join_company">既存の会社に参加</string>
+    <string name="tab_join">参加コード入力</string>
+    <string name="tab_create">会社新規作成</string>
+    <string name="label_real_name">本名（フルネーム）</string>
+    <string name="label_company_name">作成する会社名</string>
+    <string name="hint_company_name">例: 株式会社〇〇</string>
+    <string name="hint_admin_note">※あなたが管理者になります</string>
+    <string name="label_invite_code">招待コード</string>
+    <string name="hint_invite_code">例: C6DQC6</string>
+    <string name="btn_create_start">作成して開始</string>
+    <string name="btn_join_start">登録して参加</string>
+
+    <string name="error_login_failed">ログインに失敗しました</string>
+    <string name="error_google_signin">Googleサインインに失敗しました: %1$s</string>
+    <string name="msg_verification_sent">認証メールを送信しました</string>
+    <string name="msg_not_verified_yet">まだ認証が完了していません</string>
+    <string name="msg_create_company_success">会社を作成しました</string>
+    <string name="msg_join_success">参加登録が完了しました</string>
+    <string name="msg_delete_success">解約が完了しました</string>
+    <string name="error_generic">エラーが発生しました</string>
+</resources>
