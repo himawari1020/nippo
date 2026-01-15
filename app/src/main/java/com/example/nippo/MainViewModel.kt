@@ -77,6 +77,14 @@ class MainViewModel : ViewModel() {
                         startCompanyListener(cId)
                         startAttendanceListener(uid, cId)
                     }
+                } else {
+                    // ドキュメントが削除された場合の処理 (NEW)
+                    // すでに会社に参加していた(=companyIdを持っていた)のにドキュメントが消えた場合は
+                    // アカウント削除とみなして強制ログアウトする
+                    if (_uiState.value.companyId != null) {
+                        logout()
+                        _uiState.update { it.copy(errorMessage = "アカウントが削除されました") }
+                    }
                 }
             }
     }
