@@ -14,10 +14,15 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi // ※環境によっては不要ですが念のため残します
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType // 【追加】新しいオートフィル設定用
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalAutofillManager // 【追加】新しいマネージャー
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentType // 【追加】セマンティクス用
+import androidx.compose.ui.semantics.semantics   // 【追加】セマンティクス用
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -73,12 +78,16 @@ fun VerificationWaitingScreen(email: String?, onCheckVerified: () -> Unit, onLog
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun LoginScreen() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val credentialManager = CredentialManager.create(context)
     val auth = FirebaseAuth.getInstance()
+
+    // 【修正】新しいAutofillManagerを取得
+    val autofillManager = LocalAutofillManager.current
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -96,9 +105,34 @@ fun LoginScreen() {
         Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(32.dp))
 
-        TextField(value = email, onValueChange = { email = it }, label = { Text(stringResource(R.string.email_label)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+        // ▼▼▼ メールアドレス欄の修正 ▼▼▼
+        TextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text(stringResource(R.string.email_label)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                // 【修正】semanticsを使ってコンテンツタイプを指定
+                .semantics { contentType = ContentType.Username },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
-        TextField(value = password, onValueChange = { password = it }, label = { Text(stringResource(R.string.password_label)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+
+        // ▼▼▼ パスワード欄の修正 ▼▼▼
+        TextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text(stringResource(R.string.password_label)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                // 【修正】semanticsを使ってコンテンツタイプを指定
+                .semantics { contentType = ContentType.Password },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+        )
 
         errorMessage?.let { Text(text = it, color = Color.Red, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
 
@@ -110,6 +144,9 @@ fun LoginScreen() {
                 if (isSignUpMode) {
                     auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
                         if (task.isSuccessful) {
+                            // 【修正】新規登録成功時に保存をコミット（新しいManagerを使用）
+                            autofillManager?.commit()
+
                             task.result?.user?.sendEmailVerification()?.addOnCompleteListener { emailTask ->
                                 if (emailTask.isSuccessful) Toast.makeText(context, msgVerificationSent, Toast.LENGTH_LONG).show()
                             }
@@ -117,7 +154,12 @@ fun LoginScreen() {
                     }
                 } else {
                     auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
-                        if (!task.isSuccessful) errorMessage = msgLoginFailed
+                        if (task.isSuccessful) {
+                            // 【修正】ログイン成功時に保存をコミット（新しいManagerを使用）
+                            autofillManager?.commit()
+                        } else {
+                            errorMessage = msgLoginFailed
+                        }
                     }
                 }
             },
@@ -144,6 +186,9 @@ fun LoginScreen() {
                         val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
                         val credential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
                         auth.signInWithCredential(credential)
+
+                        // 【修正】Googleログイン成功時もコミット
+                        autofillManager?.commit()
                     } catch (e: Exception) { errorMessage = "Google sign-in failed: ${e.message}" }
                 }
             },
@@ -163,7 +208,6 @@ fun DashboardScreen(viewModel: MainViewModel, uiState: MainUiState) {
     var newCompanyNameInput by remember { mutableStateOf("") }
     var isCreateMode by remember { mutableStateOf(false) }
 
-    // 【修正点】UiText.asString(context) を使用して文字列に変換
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
         uiState.errorMessage?.let { uiText ->
             Toast.makeText(context, uiText.asString(context), Toast.LENGTH_LONG).show()
