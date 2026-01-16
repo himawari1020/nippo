@@ -267,6 +267,8 @@ fun DashboardScreen(viewModel: MainViewModel, uiState: MainUiState) {
                             onClick = { viewModel.recordAttendance(uiState.isWorking) },
                             modifier = Modifier.size(200.dp),
                             shape = CircleShape,
+                            // 【修正点】処理中はボタンを無効化する
+                            enabled = !uiState.isLoading,
                             colors = ButtonDefaults.buttonColors(containerColor = if (uiState.isWorking) Color(0xFFEF4444) else Color(0xFF10B981))
                         ) {
                             Text(

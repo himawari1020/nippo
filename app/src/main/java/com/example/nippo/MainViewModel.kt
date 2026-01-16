@@ -1,20 +1,16 @@
 package com.example.nippo
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.functions.FirebaseFunctions
-import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
     // 状態を保持するFlow
@@ -78,7 +74,7 @@ class MainViewModel : ViewModel() {
                         startAttendanceListener(uid, cId)
                     }
                 } else {
-                    // ドキュメントが削除された場合の処理 (NEW)
+                    // ドキュメントが削除された場合の処理
                     // すでに会社に参加していた(=companyIdを持っていた)のにドキュメントが消えた場合は
                     // アカウント削除とみなして強制ログアウトする
                     if (_uiState.value.companyId != null) {
@@ -156,25 +152,35 @@ class MainViewModel : ViewModel() {
         auth.signOut()
     }
 
-    // 打刻処理
+    // 打刻処理（修正済み：連打防止機能追加）
     fun recordAttendance(currentIsWorking: Boolean) {
+        // 【修正点1】処理中ならガードして連打を防ぐ
+        if (_uiState.value.isLoading) return
+
         val companyId = _uiState.value.companyId ?: return
         val nextType = if (currentIsWorking) "clock_out" else "clock_in"
 
-        // 楽観的UI更新（先に見た目を変える）
-        _uiState.update { it.copy(isWorking = !currentIsWorking) }
+        // 【修正点2】isLoading = true をセットしつつ、楽観的UI更新も行う
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                isWorking = !currentIsWorking
+            )
+        }
 
         val data = hashMapOf("type" to nextType, "companyId" to companyId)
 
         functions.getHttpsCallable("recordAttendance").call(data)
             .addOnSuccessListener {
                 val msg = if (nextType == "clock_in") "出勤しました" else "退勤しました"
-                _uiState.update { it.copy(successMessage = msg) }
+                // 【修正点3】処理完了時に isLoading = false に戻す
+                _uiState.update { it.copy(isLoading = false, successMessage = msg) }
             }
             .addOnFailureListener { e ->
-                // 失敗したら元に戻す
+                // 失敗時は状態を元に戻し、ロックも解除する
                 _uiState.update {
                     it.copy(
+                        isLoading = false,
                         isWorking = currentIsWorking, // 元の状態に戻す
                         errorMessage = e.message ?: "打刻に失敗しました"
                     )
