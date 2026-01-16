@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 class MainViewModel : ViewModel() {
-    // 状態を保持するFlow
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
@@ -21,13 +20,11 @@ class MainViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val functions = FirebaseFunctions.getInstance()
 
-    // リスナー管理用（画面が閉じられたら監視を解除するため）
     private var userListener: ListenerRegistration? = null
     private var companyListener: ListenerRegistration? = null
     private var attendanceListener: ListenerRegistration? = null
 
     init {
-        // 1. 認証状態の監視
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             _uiState.update { it.copy(currentUser = user) }
@@ -36,9 +33,8 @@ class MainViewModel : ViewModel() {
                 checkEmailVerification(user)
                 startUserListener(user.uid)
             } else {
-                // ログアウト時はリスナーを解除して状態をリセット
                 stopListeners()
-                _uiState.update { MainUiState() } // 初期状態に戻す
+                _uiState.update { MainUiState() }
             }
         }
     }
@@ -48,14 +44,14 @@ class MainViewModel : ViewModel() {
         _uiState.update { it.copy(isEmailVerified = isVerified) }
     }
 
-    // ユーザー情報のリアルタイム監視
     private fun startUserListener(uid: String) {
         userListener?.remove()
         userListener = db.collection("users").document(uid)
             .addSnapshotListener { snapshot, e ->
-                // エラーハンドリングを追加
                 if (e != null) {
-                    _uiState.update { it.copy(errorMessage = "ユーザー情報の取得に失敗: ${e.message}") }
+                    _uiState.update {
+                        it.copy(errorMessage = UiText.StringResource(R.string.msg_user_fetch_failed, e.message ?: ""))
+                    }
                     return@addSnapshotListener
                 }
 
@@ -68,31 +64,29 @@ class MainViewModel : ViewModel() {
                             role = snapshot.getString("role")
                         )
                     }
-                    // 会社IDが取得できたら、会社情報と打刻情報の監視を開始
                     if (cId != null) {
                         startCompanyListener(cId)
                         startAttendanceListener(uid, cId)
                     }
                 } else {
-                    // ドキュメントが削除された場合の処理
-                    // すでに会社に参加していた(=companyIdを持っていた)のにドキュメントが消えた場合は
-                    // アカウント削除とみなして強制ログアウトする
                     if (_uiState.value.companyId != null) {
                         logout()
-                        _uiState.update { it.copy(errorMessage = "アカウントが削除されました") }
+                        _uiState.update {
+                            it.copy(errorMessage = UiText.StringResource(R.string.msg_account_deleted))
+                        }
                     }
                 }
             }
     }
 
-    // 会社情報の監視
     private fun startCompanyListener(companyId: String) {
         companyListener?.remove()
         companyListener = db.collection("companies").document(companyId)
             .addSnapshotListener { snapshot, e ->
-                // エラーハンドリングを追加
                 if (e != null) {
-                    _uiState.update { it.copy(errorMessage = "会社情報の取得に失敗: ${e.message}") }
+                    _uiState.update {
+                        it.copy(errorMessage = UiText.StringResource(R.string.msg_company_fetch_failed, e.message ?: ""))
+                    }
                     return@addSnapshotListener
                 }
 
@@ -102,7 +96,6 @@ class MainViewModel : ViewModel() {
             }
     }
 
-    // 最新の打刻状態の監視
     private fun startAttendanceListener(uid: String, companyId: String) {
         attendanceListener?.remove()
         attendanceListener = db.collection("attendance")
@@ -111,15 +104,13 @@ class MainViewModel : ViewModel() {
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(1)
             .addSnapshotListener { snapshot, e ->
-                // エラーハンドリングを追加
                 if (e != null) {
-                    // インデックス未作成のエラーはここで捕捉されます
-                    val msg = if (e.message?.contains("index") == true) {
-                        "インデックスの作成が必要です。LogcatのURLを確認してください。"
+                    val msgUiText = if (e.message?.contains("index") == true) {
+                        UiText.StringResource(R.string.msg_index_needed)
                     } else {
-                        "打刻履歴の取得に失敗: ${e.message}"
+                        UiText.StringResource(R.string.msg_attendance_fetch_failed, e.message ?: "")
                     }
-                    _uiState.update { it.copy(errorMessage = msg) }
+                    _uiState.update { it.copy(errorMessage = msgUiText) }
                     return@addSnapshotListener
                 }
 
@@ -130,14 +121,13 @@ class MainViewModel : ViewModel() {
             }
     }
 
-    // リスナーの解除
     private fun stopListeners() {
         userListener?.remove()
         companyListener?.remove()
         attendanceListener?.remove()
     }
 
-    // --- アクション（UIから呼ばれる関数） ---
+    // --- Actions ---
 
     fun reloadUser() {
         auth.currentUser?.reload()?.addOnCompleteListener {
@@ -152,89 +142,91 @@ class MainViewModel : ViewModel() {
         auth.signOut()
     }
 
-    // 打刻処理（修正済み：連打防止機能追加）
     fun recordAttendance(currentIsWorking: Boolean) {
-        // 【修正点1】処理中ならガードして連打を防ぐ
         if (_uiState.value.isLoading) return
 
         val companyId = _uiState.value.companyId ?: return
         val nextType = if (currentIsWorking) "clock_out" else "clock_in"
 
-        // 【修正点2】isLoading = true をセットしつつ、楽観的UI更新も行う
         _uiState.update {
-            it.copy(
-                isLoading = true,
-                isWorking = !currentIsWorking
-            )
+            it.copy(isLoading = true, isWorking = !currentIsWorking)
         }
 
         val data = hashMapOf("type" to nextType, "companyId" to companyId)
 
         functions.getHttpsCallable("recordAttendance").call(data)
             .addOnSuccessListener {
-                val msg = if (nextType == "clock_in") "出勤しました" else "退勤しました"
-                // 【修正点3】処理完了時に isLoading = false に戻す
-                _uiState.update { it.copy(isLoading = false, successMessage = msg) }
+                val msgId = if (nextType == "clock_in") R.string.msg_clock_in_success else R.string.msg_clock_out_success
+                _uiState.update {
+                    it.copy(isLoading = false, successMessage = UiText.StringResource(msgId))
+                }
             }
             .addOnFailureListener { e ->
-                // 失敗時は状態を元に戻し、ロックも解除する
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        isWorking = currentIsWorking, // 元の状態に戻す
-                        errorMessage = e.message ?: "打刻に失敗しました"
+                        isWorking = currentIsWorking,
+                        errorMessage = e.message?.let { msg -> UiText.DynamicString(msg) }
+                            ?: UiText.StringResource(R.string.msg_clock_failed)
                     )
                 }
             }
     }
 
-    // 会社作成
     fun createCompany(companyName: String, userName: String) {
         _uiState.update { it.copy(isLoading = true) }
         val data = hashMapOf("companyName" to companyName, "userName" to userName)
 
         functions.getHttpsCallable("createCompany").call(data)
             .addOnSuccessListener {
-                _uiState.update { it.copy(isLoading = false, successMessage = "会社を作成しました") }
+                _uiState.update {
+                    it.copy(isLoading = false, successMessage = UiText.StringResource(R.string.msg_company_created))
+                }
             }
             .addOnFailureListener { e ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message?.let { UiText.DynamicString(it) })
+                }
             }
     }
 
-    // 会社参加
     fun joinCompany(inviteCode: String, userName: String) {
         _uiState.update { it.copy(isLoading = true) }
         val data = hashMapOf("inviteCode" to inviteCode, "userName" to userName)
 
         functions.getHttpsCallable("joinCompany").call(data)
             .addOnSuccessListener {
-                _uiState.update { it.copy(isLoading = false, successMessage = "参加登録が完了しました") }
+                _uiState.update {
+                    it.copy(isLoading = false, successMessage = UiText.StringResource(R.string.msg_company_joined))
+                }
             }
             .addOnFailureListener { e ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message?.let { UiText.DynamicString(it) })
+                }
             }
     }
 
-    // アカウント削除
     fun deleteAccount() {
         _uiState.update { it.copy(isLoading = true) }
         functions.getHttpsCallable("deleteAccountAndCompany").call()
             .addOnSuccessListener {
-                _uiState.update { it.copy(isLoading = false, successMessage = "解約が完了しました") }
-                logout() // ログアウト処理
+                _uiState.update {
+                    it.copy(isLoading = false, successMessage = UiText.StringResource(R.string.msg_account_deleted_success))
+                }
+                logout()
             }
             .addOnFailureListener { e ->
-                _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message?.let { UiText.DynamicString(it) })
+                }
             }
     }
 
-    // メッセージ表示後にクリアするための関数
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
 
-    // ViewModel破棄時にリスナーを解除
     override fun onCleared() {
         super.onCleared()
         stopListeners()

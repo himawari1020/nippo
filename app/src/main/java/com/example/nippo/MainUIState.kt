@@ -14,6 +14,7 @@ data class MainUiState(
     val role: String? = null, // "admin" or "user"
     val isWorking: Boolean = false,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val successMessage: String? = null
+    // 【変更】String? -> UiText?
+    val errorMessage: UiText? = null,
+    val successMessage: UiText? = null
 )

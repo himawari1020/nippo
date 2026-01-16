@@ -35,9 +35,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                // ViewModelの取得（ロジック担当）
                 val viewModel: MainViewModel = viewModel()
-                // 画面の状態（UiState）を監視
                 val uiState by viewModel.uiState.collectAsState()
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -56,9 +54,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * 1. メール認証待ち画面
- */
 @Composable
 fun VerificationWaitingScreen(email: String?, onCheckVerified: () -> Unit, onLogout: () -> Unit) {
     Column(
@@ -73,17 +68,11 @@ fun VerificationWaitingScreen(email: String?, onCheckVerified: () -> Unit, onLog
         Text(stringResource(R.string.verification_sent_msg, email ?: ""), style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.verification_hint), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onCheckVerified
-        ) { Text(stringResource(R.string.verification_check_button)) }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onCheckVerified) { Text(stringResource(R.string.verification_check_button)) }
         TextButton(onClick = onLogout) { Text(stringResource(R.string.logout_return_button)) }
     }
 }
 
-/**
- * 2. ログイン画面
- */
 @Composable
 fun LoginScreen() {
     val context = LocalContext.current
@@ -96,7 +85,6 @@ fun LoginScreen() {
     var isSignUpMode by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // strings.xml からメッセージを取得
     val msgLoginFailed = stringResource(R.string.error_login_failed)
     val msgVerificationSent = stringResource(R.string.msg_verification_sent)
 
@@ -147,9 +135,7 @@ fun LoginScreen() {
 
         OutlinedButton(
             onClick = {
-                // 【重要】BuildConfig から安全にIDを取得
                 val webClientId = BuildConfig.WEB_CLIENT_ID
-
                 val googleIdOption = GetGoogleIdOption.Builder().setFilterByAuthorizedAccounts(false).setServerClientId(webClientId).build()
                 val request = GetCredentialRequest.Builder().addCredentialOption(googleIdOption).build()
                 coroutineScope.launch {
@@ -166,9 +152,6 @@ fun LoginScreen() {
     }
 }
 
-/**
- * 3. ダッシュボード画面
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: MainViewModel, uiState: MainUiState) {
@@ -180,14 +163,14 @@ fun DashboardScreen(viewModel: MainViewModel, uiState: MainUiState) {
     var newCompanyNameInput by remember { mutableStateOf("") }
     var isCreateMode by remember { mutableStateOf(false) }
 
-    // エラーや成功メッセージの表示
+    // 【修正点】UiText.asString(context) を使用して文字列に変換
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
-        uiState.errorMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        uiState.errorMessage?.let { uiText ->
+            Toast.makeText(context, uiText.asString(context), Toast.LENGTH_LONG).show()
             viewModel.clearMessages()
         }
-        uiState.successMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        uiState.successMessage?.let { uiText ->
+            Toast.makeText(context, uiText.asString(context), Toast.LENGTH_SHORT).show()
             viewModel.clearMessages()
         }
     }
@@ -267,7 +250,6 @@ fun DashboardScreen(viewModel: MainViewModel, uiState: MainUiState) {
                             onClick = { viewModel.recordAttendance(uiState.isWorking) },
                             modifier = Modifier.size(200.dp),
                             shape = CircleShape,
-                            // 【修正点】処理中はボタンを無効化する
                             enabled = !uiState.isLoading,
                             colors = ButtonDefaults.buttonColors(containerColor = if (uiState.isWorking) Color(0xFFEF4444) else Color(0xFF10B981))
                         ) {

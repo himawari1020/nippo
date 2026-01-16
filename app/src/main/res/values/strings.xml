@@ -57,4 +57,18 @@
     <string name="msg_join_success">参加登録が完了しました</string>
     <string name="msg_delete_success">解約が完了しました</string>
     <string name="error_generic">エラーが発生しました</string>
+
+    <string name="msg_user_fetch_failed">ユーザー情報の取得に失敗: %1$s</string>
+    <string name="msg_account_deleted">アカウントが削除されました</string>
+    <string name="msg_company_fetch_failed">会社情報の取得に失敗: %1$s</string>
+    <string name="msg_attendance_fetch_failed">打刻履歴の取得に失敗: %1$s</string>
+    <string name="msg_index_needed">インデックスの作成が必要です。LogcatのURLを確認してください。</string>
+
+    <string name="msg_clock_in_success">出勤しました</string>
+    <string name="msg_clock_out_success">退勤しました</string>
+    <string name="msg_clock_failed">打刻に失敗しました</string>
+
+    <string name="msg_company_created">会社を作成しました</string>
+    <string name="msg_company_joined">参加登録が完了しました</string>
+    <string name="msg_account_deleted_success">解約が完了しました</string>
 </resources>
